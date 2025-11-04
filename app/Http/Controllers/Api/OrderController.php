@@ -1,5 +1,5 @@
 <?php
-
+// app/Http/Controllers/Api/OrderController.php
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
@@ -87,6 +87,19 @@ class OrderController extends Controller
 
             // Cập nhật trạng thái đơn hàng
             $order->update(['status' => 'completed']);
+
+            // Tạo audit log
+            \App\Models\AuditLog::createLog(
+                action: 'create_order',
+                description: "Tạo đơn hàng #{$order->order_number} với tổng tiền " . number_format($totalAmount) . " VNĐ",
+                user: $request->user(),
+                model: $order,
+                newValues: [
+                    'order_number' => $order->order_number,
+                    'total_amount' => $totalAmount,
+                    'items_count' => count($orderItems)
+                ]
+            );
 
             // Xóa giỏ hàng
             Cache::forget("cart_$userId");

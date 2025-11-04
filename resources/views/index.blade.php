@@ -748,14 +748,21 @@
             const password = document.getElementById('login-password').value;
 
             try {
-               
+                // BƯỚC 1: Lấy CSRF cookie trước (fix lỗi 419)
+                await fetch(`${API_URL.replace('/api', '')}/sanctum/csrf-cookie`, {
+                    credentials: 'include'
+                });
+
+                // BƯỚC 2: Gửi request login
                 const response = await fetch(`${API_URL}/login`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    credentials: 'include',
                     body: JSON.stringify({ email, password })
                 });
-                console.log(response);
-
 
                 const data = await response.json();
                 
@@ -770,6 +777,7 @@
                     showAlert(data.message || 'Đăng nhập thất bại', 'error');
                 }
             } catch (error) {
+                console.error('Login error:', error);
                 showAlert('Lỗi kết nối', 'error');
             }
         }
@@ -782,9 +790,19 @@
             const password_confirmation = document.getElementById('register-password-confirm').value;
 
             try {
+                // BƯỚC 1: Lấy CSRF cookie trước (fix lỗi 419)
+                await fetch(`${API_URL.replace('/api', '')}/sanctum/csrf-cookie`, {
+                    credentials: 'include'
+                });
+
+                // BƯỚC 2: Gửi request register
                 const response = await fetch(`${API_URL}/register`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    credentials: 'include',
                     body: JSON.stringify({ name, email, phone, password, password_confirmation })
                 });
 
@@ -801,6 +819,7 @@
                     showAlert(data.errors ? Object.values(data.errors)[0][0] : 'Đăng ký thất bại', 'error');
                 }
             } catch (error) {
+                console.error('Register error:', error);
                 showAlert('Lỗi kết nối', 'error');
             }
         }
@@ -863,7 +882,7 @@
             const grid = document.getElementById('cards-grid');
             grid.innerHTML = categories.map(cat => `
                 <div class="card-category">
-                    <img src="${"storage/" +cat.image || 'https://via.placeholder.com/280x150?text=' + cat.name}" alt="${cat.name}">
+                    <img src="${cat.image || 'https://via.placeholder.com/280x150?text=' + cat.name}" alt="${cat.name}">
                     <h3>${cat.name}</h3>
                     <p>${cat.description || ''}</p>
                     <div class="denominations">
@@ -880,10 +899,17 @@
                         <input type="number" id="qty-${cat.id}" value="1" min="1" max="50">
                         <button onclick="changeQuantity(${cat.id}, 1)">+</button>
                     </div>
-                    <button class="add-to-cart-btn" id="add-btn-${cat.id}" style="display: none;" 
-                        onclick="addToCart(${cat.id})">
-                        Thêm vào giỏ
-                    </button>
+                    <div style="display: flex; gap: 10px; margin-top: 15px;">
+                        <button class="add-to-cart-btn" id="add-btn-${cat.id}" style="display: none; flex: 1;" 
+                            onclick="addToCart(${cat.id})">
+                            🛒 Thêm vào giỏ
+                        </button>
+                        <button class="add-to-cart-btn" id="buy-now-btn-${cat.id}" 
+                            style="display: none; flex: 1; background: linear-gradient(135deg, #ff6b6b, #ee5a6f);" 
+                            onclick="buyNow(${cat.id})">
+                            ⚡ Mua ngay
+                        </button>
+                    </div>
                 </div>
             `).join('');
         }
