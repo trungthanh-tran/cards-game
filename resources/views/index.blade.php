@@ -592,18 +592,18 @@
     </style>
 </head>
 <body>
-    <header id="header" class="hidden">
+    <header id="header">
         <div class="header-content">
             <div class="logo">🎮 Game Card Shop</div>
-            <div class="user-info">
+             <div class="user-info">
                 <div class="wallet-balance">
-                    💰 Số dư: <span id="balance">0</span> VNĐ
+                    ðŸ’° Sá»‘ dÆ°: <span id="balance">0</span> VNÄ
                 </div>
                 <button class="cart-btn" onclick="toggleCart()">
-                    🛒 Giỏ hàng
+                    ðŸ›’ Giá» hÃ ng
                     <span class="cart-count" id="cart-count">0</span>
                 </button>
-                <button class="btn" style="width: auto; padding: 10px 20px;" onclick="logout()">Đăng xuất</button>
+                <button class="btn" style="width: auto; padding: 10px 20px;" onclick="logout()">ÄÄƒng xuáº¥t</button>
             </div>
         </div>
     </header>
@@ -926,9 +926,10 @@
             event.target.classList.add('selected');
             selectedDenominations[catId] = denId;
             
-            // Show quantity and add button
+            // Show quantity and buttons
             document.getElementById(`quantity-${catId}`).style.display = 'flex';
             document.getElementById(`add-btn-${catId}`).style.display = 'block';
+            document.getElementById(`buy-now-btn-${catId}`).style.display = 'block';
         }
 
         function changeQuantity(catId, delta) {
@@ -963,6 +964,49 @@
                     showAlert('Đã thêm vào giỏ hàng!', 'success');
                 } else {
                     showAlert(data.message, 'error');
+                }
+            } catch (error) {
+                showAlert('Lỗi kết nối', 'error');
+            }
+        }
+
+        async function buyNow(catId) {
+            const denId = selectedDenominations[catId];
+            const qty = parseInt(document.getElementById(`qty-${catId}`).value);
+            
+            if (!denId) return;
+
+            try {
+                // Step 1: Add to cart
+                const addResponse = await fetch(`${API_URL}/cart/add`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ denomination_id: denId, quantity: qty })
+                });
+
+                if (!addResponse.ok) {
+                    const data = await addResponse.json();
+                    showAlert(data.message, 'error');
+                    return;
+                }
+
+                cart = await addResponse.json().then(d => d.cart);
+                updateCartUI();
+
+                // Step 2: Show confirmation
+                const denomination = categories
+                    .find(c => c.id === catId)
+                    .denominations
+                    .find(d => d.id === denId);
+                
+                const totalAmount = denomination.price * qty;
+
+                if (confirm(`Xác nhận mua:\n\n${denomination.category_name || 'Thẻ'} - ${formatMoney(denomination.value)} VNĐ\nSố lượng: ${qty}\nTổng tiền: ${formatMoney(totalAmount)} VNĐ\n\nBạn có chắc chắn muốn thanh toán?`)) {
+                    // Step 3: Checkout
+                    await checkout();
                 }
             } catch (error) {
                 showAlert('Lỗi kết nối', 'error');

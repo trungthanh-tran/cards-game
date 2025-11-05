@@ -1,5 +1,5 @@
 <?php
-// app/Http/Controllers/Api/OrderController.php
+
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
@@ -64,22 +64,55 @@ class OrderController extends Controller
 
             // Gán thẻ cho đơn hàng
             foreach ($orderItems as $item) {
-                $cards = Card::where('denomination_id', $item['denomination']->id)
-                    ->where('status', 'available')
-                    ->where('expiry_date', '>', now())
-                    ->limit($item['quantity'])
-                    ->lockForUpdate()
-                    ->get();
+                $denomination = $item['denomination'];
+                $category = $denomination->category;
 
+                // Kiểm tra loại provider
+                if ($category->isApiProvider()) {
+                    // Lấy thẻ từ API
+                    $provider = $category->getProvider();
+                    
+                    if (!$provider) {
+                        throw new \Exception("Provider không khả dụng cho {$category->name}");
+                    }
+
+                    $result = $provider->getCards($denomination->id, $item['quantity']);
+                    
+                    if (!$result['success']) {
+                        throw new \Exception("Lỗi lấy thẻ từ API: " . $result['message']);
+                    }
+
+                    $cards = $result['cards'];
+
+                } else {
+                    // Lấy thẻ từ kho
+                    $cards = Card::where('denomination_id', $denomination->id)
+                        ->where('status', 'available')
+                        ->where('expiry_date', '>', now())
+                        ->limit($item['quantity'])
+                        ->lockForUpdate()
+                        ->get();
+
+                    if ($cards->count() < $item['quantity']) {
+                        throw new \Exception("Thẻ {$category->name} mệnh giá {$denomination->value} không đủ số lượng trong kho");
+                    }
+                }
+
+                // Tạo order items
                 foreach ($cards as $card) {
                     $order->items()->create([
                         'card_id' => $card->id,
-                        'denomination_id' => $item['denomination']->id,
+                        'denomination_id' => $denomination->id,
                         'price' => $item['price']
                     ]);
 
                     $card->update(['status' => 'sold']);
                 }
+
+                // Cập nhật stock
+                $denomination->update([
+                    'stock' => $denomination->availableCards()->count()
+                ]);
             }
 
             // Trừ tiền trong ví
